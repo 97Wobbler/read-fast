@@ -1,5 +1,4 @@
 import {
-  AlignLeft,
   Gauge,
   Pause,
   Play,
@@ -294,12 +293,6 @@ function App() {
                 />
               </label>
 
-              <div className="settings-actions">
-                <button type="button" onClick={() => setText(SAMPLE_TEXT)}>
-                  <AlignLeft size={17} aria-hidden="true" />
-                  샘플
-                </button>
-              </div>
             </aside>
           </section>
         </main>

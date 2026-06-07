@@ -66,7 +66,6 @@ button:disabled {
 }
 
 .primary-button,
-.settings-actions button,
 .reader-controls button,
 .edit-button {
   display: inline-flex;
@@ -163,20 +162,6 @@ button:disabled {
 .speed-control input {
   width: 100%;
   accent-color: #2d6cdf;
-}
-
-.settings-actions {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
-  margin-top: 6px;
-}
-
-.settings-actions button {
-  background: #ffffff;
-  color: #202326;
-  border: 1px solid #d7dee8;
-  font-weight: 700;
 }
 
 .reader-shell {
