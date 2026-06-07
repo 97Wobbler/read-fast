@@ -167,7 +167,7 @@ button:disabled {
 
 .settings-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 10px;
   margin-top: 6px;
 }
@@ -360,6 +360,13 @@ button:disabled {
   background: #f5f1e8;
   color: #101113;
   font-weight: 800;
+}
+
+.reader-controls .restart-button {
+  width: auto;
+  min-width: 112px;
+  padding: 0 14px;
+  font-weight: 760;
 }
 
 @media (max-width: 760px) {

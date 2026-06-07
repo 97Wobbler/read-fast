@@ -49,7 +49,7 @@ function tokenizeText(text: string): ReadingToken[] {
     if (sentenceEndPattern.test(textValue)) {
       pause = 2.1;
     } else if (clauseEndPattern.test(textValue)) {
-      pause = 1.35;
+      pause = 1.7;
     }
 
     if (/\n\s*\n/.test(gap)) {
@@ -237,9 +237,10 @@ function App() {
     setIndex((current) => clamp(current + (direction === "back" ? -1 : 1), 0, Math.max(tokens.length - 1, 0)));
   }
 
-  function resetReader() {
-    setIsPlaying(false);
+  function restartReader() {
+    clearHoldTimer();
     setIndex(0);
+    setIsPlaying(true);
   }
 
   return (
@@ -297,10 +298,6 @@ function App() {
                 <button type="button" onClick={() => setText(SAMPLE_TEXT)}>
                   <AlignLeft size={17} aria-hidden="true" />
                   샘플
-                </button>
-                <button type="button" onClick={resetReader}>
-                  <RotateCcw size={17} aria-hidden="true" />
-                  처음
                 </button>
               </div>
             </aside>
@@ -360,6 +357,10 @@ function App() {
           </section>
 
           <nav className="reader-controls" aria-label="재생 컨트롤">
+            <button className="restart-button" type="button" onClick={restartReader}>
+              <RotateCcw size={19} aria-hidden="true" />
+              <span>처음부터</span>
+            </button>
             <button type="button" onClick={() => skip("back")} aria-label="이전">
               <SkipBack size={22} aria-hidden="true" />
             </button>
