@@ -31,6 +31,8 @@ const fencePattern = /^\s{0,3}(`{3,}|~{3,})/;
 const horizontalRulePattern = /^\s{0,3}(?:[-*_]\s*){3,}$/;
 const setextHeadingUnderlinePattern = /^\s{0,3}=+\s*$/;
 const tableDividerPattern = /^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$/;
+const readableCharPattern = /\p{L}|\p{N}/u;
+const latinCharPattern = /\p{Script=Latin}/u;
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
@@ -177,6 +179,14 @@ function getTokenDelay(token: ReadingToken, wpm: number) {
   return Math.round(base * lengthPause * token.pause);
 }
 
+function getSpritzOrpPosition(length: number) {
+  if (length <= 1) return 0;
+  if (length <= 5) return 1;
+  if (length <= 9) return 2;
+  if (length <= 13) return 3;
+  return 4;
+}
+
 function splitByFocus(text: string) {
   const chars = Array.from(text);
   if (chars.length <= 1) {
@@ -185,13 +195,17 @@ function splitByFocus(text: string) {
 
   const cleanIndexes = chars
     .map((char, index) => ({ char, index }))
-    .filter(({ char }) => /\p{L}|\p{N}/u.test(char));
+    .filter(({ char }) => readableCharPattern.test(char));
 
   if (!cleanIndexes.length) {
     return { before: "", focus: text, after: "" };
   }
 
-  const focusIndex = cleanIndexes[Math.max(0, Math.floor((cleanIndexes.length - 1) / 2))].index;
+  const hasLatinText = cleanIndexes.some(({ char }) => latinCharPattern.test(char));
+  const focusPosition = hasLatinText
+    ? getSpritzOrpPosition(cleanIndexes.length)
+    : Math.max(0, Math.floor((cleanIndexes.length - 1) / 2));
+  const focusIndex = cleanIndexes[Math.min(focusPosition, cleanIndexes.length - 1)].index;
 
   return {
     before: chars.slice(0, focusIndex).join(""),
