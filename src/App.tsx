@@ -27,9 +27,111 @@ const SAMPLE_TEXT =
 
 const sentenceEndPattern = /[.!?。！？…]+["'”’)\]]*$/;
 const clauseEndPattern = /[,，、;:：]+["'”’)\]]*$/;
+const fencePattern = /^\s{0,3}(`{3,}|~{3,})/;
+const horizontalRulePattern = /^\s{0,3}(?:[-*_]\s*){3,}$/;
+const setextHeadingUnderlinePattern = /^\s{0,3}=+\s*$/;
+const tableDividerPattern = /^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$/;
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
+}
+
+function stripInlineMarkdownSyntax(text: string) {
+  return text
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/\[([^\]]+)\]\[[^\]]*\]/g, "$1")
+    .replace(/\[\^[^\]]+\]/g, "")
+    .replace(/<https?:\/\/[^>\s]+>/gi, "")
+    .replace(/`+([^`]*?)`+/g, "$1")
+    .replace(/~~([^~]*?)~~/g, "$1")
+    .replace(/(\*\*|__)(.*?)\1/g, "$2")
+    .replace(/(^|[\s([{])([*_])([^*_]+?)\2(?=$|[\s.,;:!?)}\]])/g, "$1$3")
+    .replace(/\\([\\`*_{}\[\]()#+\-.!|>~])/g, "$1")
+    .replace(/[ \t]{2,}/g, " ")
+    .trimEnd();
+}
+
+function stripBlockquoteSyntax(line: string) {
+  let cleaned = line;
+
+  while (/^\s{0,3}>/.test(cleaned)) {
+    cleaned = cleaned.replace(/^\s{0,3}>\s?/, "");
+  }
+
+  return cleaned;
+}
+
+function stripMarkdownLineSyntax(line: string, isTableRow: boolean) {
+  let cleaned = stripBlockquoteSyntax(line);
+
+  if (
+    horizontalRulePattern.test(cleaned) ||
+    setextHeadingUnderlinePattern.test(cleaned) ||
+    tableDividerPattern.test(cleaned)
+  ) {
+    return "";
+  }
+
+  const isHeading = /^\s{0,3}#{1,6}(?:\s+|$)/.test(cleaned);
+  if (isHeading) {
+    cleaned = cleaned.replace(/^\s{0,3}#{1,6}(?:\s+|$)/, "").replace(/\s+#{1,}\s*$/, "");
+  }
+
+  cleaned = cleaned
+    .replace(/^\s*\[\^[^\]]+\]:\s*/, "")
+    .replace(/^(\s*\d+[.)])\s+\[[ xX]\]\s+/, "$1 ")
+    .replace(/^\s*[-*+]\s+\[[ xX]\]\s+/, "")
+    .replace(/^\s*[-*+]\s+/, "");
+
+  const trimmed = cleaned.trim();
+  if (isTableRow || (trimmed.startsWith("|") && trimmed.endsWith("|") && trimmed.slice(1, -1).includes("|"))) {
+    cleaned = trimmed.replace(/^\|/, "").replace(/\|$/, "").replace(/\s*\|\s*/g, " ");
+  }
+
+  return stripInlineMarkdownSyntax(cleaned);
+}
+
+function stripMarkdownSyntax(text: string) {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  const cleanedLines: string[] = [];
+  const tableRowIndexes = new Set<number>();
+  let fenceChar: "`" | "~" | null = null;
+
+  lines.forEach((line, index) => {
+    if (!tableDividerPattern.test(stripBlockquoteSyntax(line))) return;
+
+    tableRowIndexes.add(index);
+
+    for (let previousIndex = index - 1; previousIndex >= 0; previousIndex -= 1) {
+      const previousLine = stripBlockquoteSyntax(lines[previousIndex]).trim();
+      if (!previousLine || !previousLine.includes("|")) break;
+      tableRowIndexes.add(previousIndex);
+    }
+
+    for (let nextIndex = index + 1; nextIndex < lines.length; nextIndex += 1) {
+      const nextLine = stripBlockquoteSyntax(lines[nextIndex]).trim();
+      if (!nextLine || !nextLine.includes("|")) break;
+      tableRowIndexes.add(nextIndex);
+    }
+  });
+
+  for (const [index, line] of lines.entries()) {
+    const fence = line.match(fencePattern);
+    if (fence) {
+      const currentFenceChar = fence[1][0] as "`" | "~";
+      if (!fenceChar || fenceChar === currentFenceChar) {
+        fenceChar = fenceChar ? null : currentFenceChar;
+        cleanedLines.push("");
+        continue;
+      }
+    }
+
+    cleanedLines.push(fenceChar ? line : stripMarkdownLineSyntax(line, tableRowIndexes.has(index)));
+  }
+
+  return cleanedLines.join("\n").trim();
 }
 
 function tokenizeText(text: string): ReadingToken[] {
@@ -132,7 +234,8 @@ function App() {
   const [holdSide, setHoldSide] = useState<HoldSide>(null);
   const holdTimerRef = useRef<number | null>(null);
 
-  const tokens = useMemo(() => tokenizeText(text), [text]);
+  const readableText = useMemo(() => stripMarkdownSyntax(text), [text]);
+  const tokens = useMemo(() => tokenizeText(readableText), [readableText]);
   const currentToken = tokens[index] ?? null;
   const progress = tokens.length ? ((index + 1) / tokens.length) * 100 : 0;
   const remainingSeconds = useMemo(() => {
